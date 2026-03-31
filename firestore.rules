@@ -1,0 +1,155 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: clientes
+    // Fields:
+    //   - userId: string (required)
+    //   - nome: string (required, max 100 chars)
+    //   - servico: string (required, max 100 chars)
+    //   - valorMensal: number (required, >= 0)
+    //   - status: string (required, 'Ativo' or 'Inativo')
+    //   - dataEntrada: string (required, YYYY-MM-DD)
+    //
+    // Collection: faturamentos
+    // Fields:
+    //   - userId: string (required)
+    //   - data: string (required, YYYY-MM-DD)
+    //   - descricao: string (required, max 200 chars)
+    //   - clienteId: string (required)
+    //   - valor: number (required, >= 0)
+    //   - status: string (required, 'Recebido' or 'Pendente')
+    //
+    // Collection: custos
+    // Fields:
+    //   - userId: string (required)
+    //   - data: string (required, YYYY-MM-DD)
+    //   - categoria: string (required, enum)
+    //   - descricao: string (required, max 200 chars)
+    //   - valor: number (required, >= 0)
+    //
+    // Collection: despesas
+    // Fields:
+    //   - userId: string (required)
+    //   - data: string (required, YYYY-MM-DD)
+    //   - categoria: string (required, enum)
+    //   - descricao: string (required, max 200 chars)
+    //   - valor: number (required, >= 0)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}$");
+    }
+
+    function isPositive(field) {
+      return request.resource.data[field] is number && request.resource.data[field] >= 0;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidCliente(data) {
+      return hasOnlyAllowedFields(['userId', 'nome', 'servico', 'valorMensal', 'status', 'dataEntrada']) &&
+             validStringLength('nome', 1, 100) &&
+             validStringLength('servico', 1, 100) &&
+             isPositive('valorMensal') &&
+             request.resource.data.status in ['Ativo', 'Inativo'] &&
+             isValidDateString(request.resource.data.dataEntrada);
+    }
+
+    function isValidFaturamento(data) {
+      return hasOnlyAllowedFields(['userId', 'data', 'descricao', 'clienteId', 'valor', 'status']) &&
+             isValidDateString(request.resource.data.data) &&
+             validStringLength('descricao', 1, 200) &&
+             validStringLength('clienteId', 1, 100) &&
+             isPositive('valor') &&
+             request.resource.data.status in ['Recebido', 'Pendente'];
+    }
+
+    function isValidCusto(data) {
+      return hasOnlyAllowedFields(['userId', 'data', 'categoria', 'descricao', 'valor']) &&
+             isValidDateString(request.resource.data.data) &&
+             request.resource.data.categoria in ['Operacional', 'Produto', 'Marketing', 'Pessoal', 'Outro'] &&
+             validStringLength('descricao', 1, 200) &&
+             isPositive('valor');
+    }
+
+    function isValidDespesa(data) {
+      return hasOnlyAllowedFields(['userId', 'data', 'categoria', 'descricao', 'valor']) &&
+             isValidDateString(request.resource.data.data) &&
+             request.resource.data.categoria in ['Aluguel', 'Internet', 'Software', 'Contador', 'Outros'] &&
+             validStringLength('descricao', 1, 200) &&
+             isPositive('valor');
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /clientes/{clienteId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidCliente(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidCliente(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /faturamentos/{faturamentoId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidFaturamento(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidFaturamento(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /custos/{custoId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidCusto(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidCusto(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /despesas/{despesaId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidDespesa(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidDespesa(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+  }
+}
