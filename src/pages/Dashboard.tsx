@@ -130,10 +130,10 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolução do Lucro</h2>
           <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
+              <LineChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6B7280'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280'}} tickFormatter={(value) => `R$ ${value}`} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} width={70} tickFormatter={(value) => `R$ ${value >= 1000 ? (value/1000).toFixed(1)+'k' : value}`} />
                 <Tooltip formatter={(value: number) => formatCurrency(value)} />
                 <Line type="monotone" dataKey="lucro" name="Lucro" stroke="#10B981" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
               </LineChart>
@@ -145,10 +145,10 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Faturamento vs Custos + Despesas</h2>
           <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+              <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6B7280'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280'}} tickFormatter={(value) => `R$ ${value}`} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} width={70} tickFormatter={(value) => `R$ ${value >= 1000 ? (value/1000).toFixed(1)+'k' : value}`} />
                 <Tooltip formatter={(value: number) => formatCurrency(value)} />
                 <Legend />
                 <Bar dataKey="faturamento" name="Faturamento" fill="#10B981" radius={[4, 4, 0, 0]} />
