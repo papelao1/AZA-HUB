@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import { useAppStore } from '../lib/store';
 import { Card, Button, Input } from '../components/ui';
 import { Send, Loader2 } from 'lucide-react';
-import Groq from 'groq-sdk';
 
 export default function AzaIA() {
   const { addFaturamento, addCusto, addDespesa, addCliente, clientes } = useAppStore();
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [messages, setMessages] = useState<{role: 'user' | 'ai', text: string}[]>([
-    { role: 'ai', text: 'Olá! Sou a AZA IA. Como posso ajudar você a registrar suas finanças hoje? Exemplo: "Hoje eu recebi 2000 da cliente bruna"' }
+  const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([
+    { role: 'ai', text: 'Olá! Sou a AZA IA. Como posso ajudar você a registrar suas finanças hoje? Exemplo: "Hoje eu recebi 2000 da cliente bruna"' },
   ]);
 
   const handleSend = async (e: React.FormEvent) => {
@@ -22,25 +21,23 @@ export default function AzaIA() {
     setIsLoading(true);
 
     try {
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY, dangerouslyAllowBrowser: true });
-
       const clientesList = clientes.map(c => `ID: ${c.id}, Nome: ${c.nome}`).join('\n');
 
       const systemInstruction = `
-        Você é um assistente financeiro inteligente. Sua tarefa é extrair informações de transações financeiras do texto do usuário e chamar a função apropriada para registrar a transação.
+        Você é um assistente financeiro inteligente. Sua tarefa é extrair informações de transações financeiras do texto do usuário e chamar a função apropriada.
 
-        Lista de clientes cadastrados atualmente:
+        Lista de clientes cadastrados:
         ${clientesList || 'Nenhum cliente cadastrado ainda.'}
 
         Regras:
-        - Se for um recebimento/faturamento, use registrarFaturamento. Tente encontrar o ID do cliente na lista pelo nome. Se não encontrar, use string vazia.
-        - Se for um custo (operação/produto), use registrarCusto.
-        - Se for uma despesa (fixa/administrativa), use registrarDespesa.
-        - Se o usuário pedir para cadastrar um novo cliente, use registrarCliente.
-        - A data deve ser no formato YYYY-MM-DD. Se disser "hoje", use: ${new Date().toISOString().slice(0, 10)}.
+        - Recebimento/faturamento → registrarFaturamento. Busque o ID do cliente pelo nome. Se não encontrar, use string vazia.
+        - Custo (operação/produto) → registrarCusto.
+        - Despesa (fixa/administrativa) → registrarDespesa.
+        - Novo cliente → registrarCliente.
+        - Data no formato YYYY-MM-DD. "Hoje" = ${new Date().toISOString().slice(0, 10)}.
       `;
 
-      const tools: any[] = [
+      const tools = [
         {
           type: 'function',
           function: {
@@ -49,11 +46,11 @@ export default function AzaIA() {
             parameters: {
               type: 'object',
               properties: {
-                nome: { type: 'string', description: 'Nome do cliente' },
-                servico: { type: 'string', description: 'Nicho ou serviço prestado' },
-                valorMensal: { type: 'number', description: 'Valor da recorrência mensal' },
-                dataEntrada: { type: 'string', description: 'Data de entrada YYYY-MM-DD' },
-                valorEntrada: { type: 'number', description: 'Valor de entrada (0 se não houver)' },
+                nome: { type: 'string' },
+                servico: { type: 'string' },
+                valorMensal: { type: 'number' },
+                dataEntrada: { type: 'string' },
+                valorEntrada: { type: 'number' },
               },
               required: ['nome', 'servico', 'valorMensal', 'dataEntrada'],
             },
@@ -67,11 +64,11 @@ export default function AzaIA() {
             parameters: {
               type: 'object',
               properties: {
-                data: { type: 'string', description: 'Data YYYY-MM-DD' },
-                descricao: { type: 'string', description: 'Descrição' },
-                clienteId: { type: 'string', description: 'ID do cliente' },
-                valor: { type: 'number', description: 'Valor numérico' },
-                status: { type: 'string', description: 'Recebido ou Pendente' },
+                data: { type: 'string' },
+                descricao: { type: 'string' },
+                clienteId: { type: 'string' },
+                valor: { type: 'number' },
+                status: { type: 'string' },
               },
               required: ['data', 'descricao', 'clienteId', 'valor', 'status'],
             },
@@ -85,10 +82,10 @@ export default function AzaIA() {
             parameters: {
               type: 'object',
               properties: {
-                data: { type: 'string', description: 'Data YYYY-MM-DD' },
-                categoria: { type: 'string', description: 'Operacional, Produto, Marketing, Pessoal ou Outro' },
-                descricao: { type: 'string', description: 'Descrição' },
-                valor: { type: 'number', description: 'Valor numérico' },
+                data: { type: 'string' },
+                categoria: { type: 'string' },
+                descricao: { type: 'string' },
+                valor: { type: 'number' },
               },
               required: ['data', 'categoria', 'descricao', 'valor'],
             },
@@ -102,10 +99,10 @@ export default function AzaIA() {
             parameters: {
               type: 'object',
               properties: {
-                data: { type: 'string', description: 'Data YYYY-MM-DD' },
-                categoria: { type: 'string', description: 'Aluguel, Internet, Software, Contador ou Outros' },
-                descricao: { type: 'string', description: 'Descrição' },
-                valor: { type: 'number', description: 'Valor numérico' },
+                data: { type: 'string' },
+                categoria: { type: 'string' },
+                descricao: { type: 'string' },
+                valor: { type: 'number' },
               },
               required: ['data', 'categoria', 'descricao', 'valor'],
             },
@@ -113,16 +110,25 @@ export default function AzaIA() {
         },
       ];
 
-      const response = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemInstruction },
-          { role: 'user', content: userText },
-        ],
-        tools,
-        tool_choice: 'auto',
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: userText },
+          ],
+          tools,
+          tool_choice: 'auto',
+        }),
       });
 
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      const response = await res.json();
       const responseMessage = response.choices[0].message;
       const toolCalls = responseMessage.tool_calls;
 
@@ -138,10 +144,10 @@ export default function AzaIA() {
             setMessages(prev => [...prev, { role: 'ai', text: `✅ Faturamento de R$ ${args.valor} registrado com sucesso!` }]);
           }
         } else if (call.function.name === 'registrarCusto') {
-          await addCusto({ data: args.data, categoria: args.categoria as any, descricao: args.descricao, valor: args.valor });
+          await addCusto({ data: args.data, categoria: args.categoria, descricao: args.descricao, valor: args.valor });
           setMessages(prev => [...prev, { role: 'ai', text: `✅ Custo de R$ ${args.valor} (${args.categoria}) registrado com sucesso!` }]);
         } else if (call.function.name === 'registrarDespesa') {
-          await addDespesa({ data: args.data, categoria: args.categoria as any, descricao: args.descricao, valor: args.valor });
+          await addDespesa({ data: args.data, categoria: args.categoria, descricao: args.descricao, valor: args.valor });
           setMessages(prev => [...prev, { role: 'ai', text: `✅ Despesa de R$ ${args.valor} (${args.categoria}) registrada com sucesso!` }]);
         } else if (call.function.name === 'registrarCliente') {
           const clienteId = await addCliente({ nome: args.nome, servico: args.servico, valorMensal: args.valorMensal, status: 'Ativo', dataEntrada: args.dataEntrada });
@@ -155,7 +161,6 @@ export default function AzaIA() {
       } else {
         setMessages(prev => [...prev, { role: 'ai', text: responseMessage.content || 'Não entendi. Pode reformular informando o valor, o que foi e, se for recebimento, de qual cliente?' }]);
       }
-
     } catch (error: any) {
       console.error('AZA IA Error:', error);
       setMessages(prev => [...prev, { role: 'ai', text: `Erro: ${error?.message || 'Falha ao processar. Tente novamente.'}` }]);
