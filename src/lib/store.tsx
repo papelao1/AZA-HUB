@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, query, where, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { handleFirestoreError, OperationType } from './firestore-errors';
 
@@ -41,11 +41,21 @@ export type Despesa = {
   valor: number;
 };
 
+export type Tarefa = {
+  id: string;
+  userId: string;
+  titulo: string;
+  descricao: string;
+  concluida: boolean;
+  criadaEm: string;
+};
+
 type AppContextType = {
   clientes: Cliente[];
   faturamentos: Faturamento[];
   custos: Custo[];
   despesas: Despesa[];
+  tarefas: Tarefa[];
   addCliente: (cliente: Omit<Cliente, 'id' | 'userId'>) => Promise<string | void>;
   removeCliente: (id: string) => Promise<void>;
   addFaturamento: (faturamento: Omit<Faturamento, 'id' | 'userId'>) => Promise<void>;
@@ -54,6 +64,9 @@ type AppContextType = {
   removeCusto: (id: string) => Promise<void>;
   addDespesa: (despesa: Omit<Despesa, 'id' | 'userId'>) => Promise<void>;
   removeDespesa: (id: string) => Promise<void>;
+  addTarefa: (tarefa: Omit<Tarefa, 'id' | 'userId'>) => Promise<string | void>;
+  toggleTarefa: (id: string, concluida: boolean) => Promise<void>;
+  removeTarefa: (id: string) => Promise<void>;
   userId: string | null;
 };
 
@@ -64,6 +77,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [faturamentos, setFaturamentos] = useState<Faturamento[]>([]);
   const [custos, setCustos] = useState<Custo[]>([]);
   const [despesas, setDespesas] = useState<Despesa[]>([]);
+  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -79,6 +93,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setFaturamentos([]);
       setCustos([]);
       setDespesas([]);
+      setTarefas([]);
       return;
     }
 
@@ -102,11 +117,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setDespesas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Despesa)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'despesas'));
 
+    const qTarefas = query(collection(db, 'tarefas'), where('userId', '==', userId));
+    const unsubTarefas = onSnapshot(qTarefas, (snapshot) => {
+      setTarefas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tarefa)));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'tarefas'));
+
     return () => {
       unsubClientes();
       unsubFaturamentos();
       unsubCustos();
       unsubDespesas();
+      unsubTarefas();
     };
   }, [userId]);
 
@@ -183,13 +204,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addTarefa = async (tarefa: Omit<Tarefa, 'id' | 'userId'>) => {
+    if (!userId) return;
+    try {
+      const docRef = await addDoc(collection(db, 'tarefas'), { ...tarefa, userId });
+      return docRef.id;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'tarefas');
+    }
+  };
+
+  const toggleTarefa = async (id: string, concluida: boolean) => {
+    if (!userId) return;
+    try {
+      await updateDoc(doc(db, 'tarefas', id), { concluida });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `tarefas/${id}`);
+    }
+  };
+
+  const removeTarefa = async (id: string) => {
+    if (!userId) return;
+    try {
+      await deleteDoc(doc(db, 'tarefas', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `tarefas/${id}`);
+    }
+  };
+
   return (
     <AppContext.Provider value={{
-      clientes, faturamentos, custos, despesas,
+      clientes, faturamentos, custos, despesas, tarefas,
       addCliente, removeCliente,
       addFaturamento, removeFaturamento,
       addCusto, removeCusto,
       addDespesa, removeDespesa,
+      addTarefa, toggleTarefa, removeTarefa,
       userId
     }}>
       {children}

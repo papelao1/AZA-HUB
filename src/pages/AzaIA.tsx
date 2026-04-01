@@ -4,7 +4,7 @@ import { Card, Button, Input } from '../components/ui';
 import { Send, Loader2 } from 'lucide-react';
 
 export default function AzaIA() {
-  const { addFaturamento, addCusto, addDespesa, addCliente, clientes } = useAppStore();
+  const { addFaturamento, addCusto, addDespesa, addCliente, addTarefa, clientes } = useAppStore();
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([
@@ -34,6 +34,7 @@ export default function AzaIA() {
         - Custo (operação/produto) → registrarCusto.
         - Despesa (fixa/administrativa) → registrarDespesa.
         - Novo cliente → registrarCliente.
+        - Tarefa, afazer, atividade ou lembrete → registrarTarefa.
         - Data no formato YYYY-MM-DD. "Hoje" = ${new Date().toISOString().slice(0, 10)}.
       `;
 
@@ -108,6 +109,21 @@ export default function AzaIA() {
             },
           },
         },
+        {
+          type: 'function',
+          function: {
+            name: 'registrarTarefa',
+            description: 'Cria uma nova tarefa, afazer ou lembrete.',
+            parameters: {
+              type: 'object',
+              properties: {
+                titulo: { type: 'string', description: 'Título curto da tarefa' },
+                descricao: { type: 'string', description: 'Detalhes adicionais da tarefa (opcional)' },
+              },
+              required: ['titulo'],
+            },
+          },
+        },
       ];
 
       const res = await fetch('/api/chat', {
@@ -157,6 +173,14 @@ export default function AzaIA() {
           } else {
             setMessages(prev => [...prev, { role: 'ai', text: `✅ Cliente ${args.nome} cadastrado! Recorrência de R$ ${args.valorMensal}.` }]);
           }
+        } else if (call.function.name === 'registrarTarefa') {
+          await addTarefa({
+            titulo: args.titulo,
+            descricao: args.descricao || '',
+            concluida: false,
+            criadaEm: new Date().toISOString(),
+          });
+          setMessages(prev => [...prev, { role: 'ai', text: `✅ Tarefa "${args.titulo}" criada! Você pode acompanhar na aba Tarefas.` }]);
         }
       } else {
         setMessages(prev => [...prev, { role: 'ai', text: responseMessage.content || 'Não entendi. Pode reformular informando o valor, o que foi e, se for recebimento, de qual cliente?' }]);

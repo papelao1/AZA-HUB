@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Receipt, TrendingDown, TrendingUp, Users, Menu, X, LogOut, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Receipt, TrendingDown, TrendingUp, Users, Menu, X, LogOut, CheckSquare } from 'lucide-react';
 import { cn } from './lib/utils';
 import { useAppStore } from './lib/store';
 import { auth } from './lib/firebase';
@@ -11,6 +11,7 @@ import Lucro from './pages/Lucro';
 import Clientes from './pages/Clientes';
 import Login from './pages/Login';
 import AzaIA from './pages/AzaIA';
+import Tarefas from './pages/Tarefas';
 import { InstallPWA } from './components/InstallPWA';
 
 const AzaIcon = ({ size, className }: { size: number, className?: string }) => (
@@ -24,7 +25,7 @@ const AzaIcon = ({ size, className }: { size: number, className?: string }) => (
   />
 );
 
-type Page = 'dashboard' | 'faturamento' | 'custos' | 'despesas' | 'lucro' | 'clientes' | 'aza-ia';
+type Page = 'dashboard' | 'faturamento' | 'custos' | 'despesas' | 'lucro' | 'clientes' | 'tarefas' | 'aza-ia';
 
 export default function App() {
   const { userId } = useAppStore();
@@ -42,6 +43,7 @@ export default function App() {
     { id: 'despesas', label: 'Despesas', icon: Receipt },
     { id: 'lucro', label: 'Lucro', icon: TrendingUp },
     { id: 'clientes', label: 'Clientes', icon: Users },
+    { id: 'tarefas', label: 'Tarefas', icon: CheckSquare },
     { id: 'aza-ia', label: 'AZA IA', icon: AzaIcon },
   ] as const;
 
@@ -53,6 +55,7 @@ export default function App() {
       case 'despesas': return <Despesas />;
       case 'lucro': return <Lucro />;
       case 'clientes': return <Clientes />;
+      case 'tarefas': return <Tarefas />;
       case 'aza-ia': return <AzaIA />;
       default: return <Dashboard />;
     }

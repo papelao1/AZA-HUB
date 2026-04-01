@@ -3,10 +3,10 @@ import { useAppStore } from '../lib/store';
 import { Card } from '../components/ui';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, TrendingDown, TrendingUp, Users, Wallet } from 'lucide-react';
+import { DollarSign, TrendingDown, TrendingUp, Users, Wallet, CheckCircle2, Circle } from 'lucide-react';
 
 export default function Dashboard() {
-  const { faturamentos, custos, despesas, clientes } = useAppStore();
+  const { faturamentos, custos, despesas, clientes, tarefas, toggleTarefa } = useAppStore();
 
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
   
@@ -159,8 +159,39 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Últimos Lançamentos</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Tarefas Pendentes</h2>
+          <div className="space-y-2">
+            {tarefas.filter(t => !t.concluida).length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">Nenhuma tarefa pendente!</p>
+            ) : (
+              tarefas
+                .filter(t => !t.concluida)
+                .sort((a, b) => b.criadaEm.localeCompare(a.criadaEm))
+                .slice(0, 5)
+                .map(tarefa => (
+                  <div key={tarefa.id} className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+                    <button
+                      onClick={() => toggleTarefa(tarefa.id, true)}
+                      className="text-gray-300 hover:text-[#CC0000] transition-colors shrink-0"
+                    >
+                      <Circle size={20} />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{tarefa.titulo}</p>
+                      {tarefa.descricao && (
+                        <p className="text-xs text-gray-400 truncate">{tarefa.descricao}</p>
+                      )}
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Últimos Lançamentos</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -201,7 +232,8 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
