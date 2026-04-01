@@ -22,7 +22,7 @@ export default function AzaIA() {
     setIsLoading(true);
 
     try {
-      const groq = new Groq({ apiKey: import.meta.env.VITE_GROQ_API_KEY, dangerouslyAllowBrowser: true });
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY, dangerouslyAllowBrowser: true });
       // Create a prompt that includes the current clients so the AI can match names to IDs
       const clientesList = clientes.map(c => `ID: ${c.id}, Nome: ${c.nome}`).join('\n');
       
