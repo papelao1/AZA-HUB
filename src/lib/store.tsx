@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, onSnapshot, query, where, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { handleFirestoreError, OperationType } from './firestore-errors';
 
 export type Cliente = {
   id: string;
-  userId: string;
   nome: string;
   servico: string;
   valorMensal: number;
@@ -15,7 +14,6 @@ export type Cliente = {
 
 export type Faturamento = {
   id: string;
-  userId: string;
   data: string;
   descricao: string;
   clienteId: string;
@@ -25,7 +23,6 @@ export type Faturamento = {
 
 export type Custo = {
   id: string;
-  userId: string;
   data: string;
   categoria: 'Operacional' | 'Produto' | 'Marketing' | 'Pessoal' | 'Outro';
   descricao: string;
@@ -34,7 +31,6 @@ export type Custo = {
 
 export type Despesa = {
   id: string;
-  userId: string;
   data: string;
   categoria: 'Aluguel' | 'Internet' | 'Software' | 'Contador' | 'Outros';
   descricao: string;
@@ -43,7 +39,6 @@ export type Despesa = {
 
 export type Tarefa = {
   id: string;
-  userId: string;
   titulo: string;
   descricao: string;
   concluida: boolean;
@@ -56,15 +51,15 @@ type AppContextType = {
   custos: Custo[];
   despesas: Despesa[];
   tarefas: Tarefa[];
-  addCliente: (cliente: Omit<Cliente, 'id' | 'userId'>) => Promise<string | void>;
+  addCliente: (cliente: Omit<Cliente, 'id'>) => Promise<string | void>;
   removeCliente: (id: string) => Promise<void>;
-  addFaturamento: (faturamento: Omit<Faturamento, 'id' | 'userId'>) => Promise<void>;
+  addFaturamento: (faturamento: Omit<Faturamento, 'id'>) => Promise<void>;
   removeFaturamento: (id: string) => Promise<void>;
-  addCusto: (custo: Omit<Custo, 'id' | 'userId'>) => Promise<void>;
+  addCusto: (custo: Omit<Custo, 'id'>) => Promise<void>;
   removeCusto: (id: string) => Promise<void>;
-  addDespesa: (despesa: Omit<Despesa, 'id' | 'userId'>) => Promise<void>;
+  addDespesa: (despesa: Omit<Despesa, 'id'>) => Promise<void>;
   removeDespesa: (id: string) => Promise<void>;
-  addTarefa: (tarefa: Omit<Tarefa, 'id' | 'userId'>) => Promise<string | void>;
+  addTarefa: (tarefa: Omit<Tarefa, 'id'>) => Promise<string | void>;
   toggleTarefa: (id: string, concluida: boolean) => Promise<void>;
   removeTarefa: (id: string) => Promise<void>;
   userId: string | null;
@@ -78,7 +73,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [custos, setCustos] = useState<Custo[]>([]);
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(undefined as any);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -88,6 +83,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (userId === undefined) return;
     if (!userId) {
       setClientes([]);
       setFaturamentos([]);
@@ -97,28 +93,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const qClientes = query(collection(db, 'clientes'), where('userId', '==', userId));
-    const unsubClientes = onSnapshot(qClientes, (snapshot) => {
+    // Shared database — no userId filter, all authenticated users see same data
+    const unsubClientes = onSnapshot(query(collection(db, 'clientes')), (snapshot) => {
       setClientes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cliente)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'clientes'));
 
-    const qFaturamentos = query(collection(db, 'faturamentos'), where('userId', '==', userId));
-    const unsubFaturamentos = onSnapshot(qFaturamentos, (snapshot) => {
+    const unsubFaturamentos = onSnapshot(query(collection(db, 'faturamentos')), (snapshot) => {
       setFaturamentos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Faturamento)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'faturamentos'));
 
-    const qCustos = query(collection(db, 'custos'), where('userId', '==', userId));
-    const unsubCustos = onSnapshot(qCustos, (snapshot) => {
+    const unsubCustos = onSnapshot(query(collection(db, 'custos')), (snapshot) => {
       setCustos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Custo)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'custos'));
 
-    const qDespesas = query(collection(db, 'despesas'), where('userId', '==', userId));
-    const unsubDespesas = onSnapshot(qDespesas, (snapshot) => {
+    const unsubDespesas = onSnapshot(query(collection(db, 'despesas')), (snapshot) => {
       setDespesas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Despesa)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'despesas'));
 
-    const qTarefas = query(collection(db, 'tarefas'), where('userId', '==', userId));
-    const unsubTarefas = onSnapshot(qTarefas, (snapshot) => {
+    const unsubTarefas = onSnapshot(query(collection(db, 'tarefas')), (snapshot) => {
       setTarefas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tarefa)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'tarefas'));
 
@@ -131,10 +123,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [userId]);
 
-  const addCliente = async (cliente: Omit<Cliente, 'id' | 'userId'>) => {
+  const addCliente = async (cliente: Omit<Cliente, 'id'>) => {
     if (!userId) return;
     try {
-      const docRef = await addDoc(collection(db, 'clientes'), { ...cliente, userId });
+      const docRef = await addDoc(collection(db, 'clientes'), cliente);
       return docRef.id;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'clientes');
@@ -150,10 +142,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addFaturamento = async (faturamento: Omit<Faturamento, 'id' | 'userId'>) => {
+  const addFaturamento = async (faturamento: Omit<Faturamento, 'id'>) => {
     if (!userId) return;
     try {
-      await addDoc(collection(db, 'faturamentos'), { ...faturamento, userId });
+      await addDoc(collection(db, 'faturamentos'), faturamento);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'faturamentos');
     }
@@ -168,10 +160,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addCusto = async (custo: Omit<Custo, 'id' | 'userId'>) => {
+  const addCusto = async (custo: Omit<Custo, 'id'>) => {
     if (!userId) return;
     try {
-      await addDoc(collection(db, 'custos'), { ...custo, userId });
+      await addDoc(collection(db, 'custos'), custo);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'custos');
     }
@@ -186,10 +178,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addDespesa = async (despesa: Omit<Despesa, 'id' | 'userId'>) => {
+  const addDespesa = async (despesa: Omit<Despesa, 'id'>) => {
     if (!userId) return;
     try {
-      await addDoc(collection(db, 'despesas'), { ...despesa, userId });
+      await addDoc(collection(db, 'despesas'), despesa);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'despesas');
     }
@@ -204,10 +196,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addTarefa = async (tarefa: Omit<Tarefa, 'id' | 'userId'>) => {
+  const addTarefa = async (tarefa: Omit<Tarefa, 'id'>) => {
     if (!userId) return;
     try {
-      const docRef = await addDoc(collection(db, 'tarefas'), { ...tarefa, userId });
+      const docRef = await addDoc(collection(db, 'tarefas'), tarefa);
       return docRef.id;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'tarefas');
