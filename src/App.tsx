@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard, Receipt, TrendingDown, TrendingUp, Users,
-  Menu, LogOut, CheckSquare, CalendarDays, ShieldCheck,
+  Menu, LogOut, CheckSquare, CalendarDays, ShieldCheck, KeyRound,
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { useAppStore } from './lib/store';
 import { useAuth } from './lib/authContext';
-import { TAG_PERMISSIONS, TAG_COLORS } from './lib/authUsers';
+import { TAG_PERMISSIONS, TAG_COLORS, getUsers, saveUsers } from './lib/authUsers';
+import { Modal, Button, Input, Label } from './components/ui';
 import Dashboard from './pages/Dashboard';
 import Faturamento from './pages/Faturamento';
 import Custos from './pages/Custos';
@@ -52,6 +53,42 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Change password modal state
+  const [isPasswordModal, setIsPasswordModal] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState(false);
+
+  const openPasswordModal = () => {
+    setPwForm({ current: '', next: '', confirm: '' });
+    setPwError(null);
+    setPwSuccess(false);
+    setIsPasswordModal(true);
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError(null);
+    setPwSuccess(false);
+    const users = getUsers();
+    const me = users.find(u => u.id === session?.id);
+    if (!me || me.password !== pwForm.current) {
+      setPwError('Senha atual incorreta.');
+      return;
+    }
+    if (pwForm.next.length < 4) {
+      setPwError('A nova senha deve ter ao menos 4 caracteres.');
+      return;
+    }
+    if (pwForm.next !== pwForm.confirm) {
+      setPwError('As senhas não coincidem.');
+      return;
+    }
+    saveUsers(users.map(u => u.id === me.id ? { ...u, password: pwForm.next } : u));
+    setPwSuccess(true);
+    setPwForm({ current: '', next: '', confirm: '' });
+  };
+
   // Gate: show login if no custom session
   if (!session) {
     return <Login />;
@@ -86,7 +123,6 @@ export default function App() {
     setIsSidebarOpen(false);
   };
 
-  // Show loading state while Firebase auth initialises (data not ready yet)
   const isLoading = userId === undefined;
 
   return (
@@ -154,11 +190,18 @@ export default function App() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 space-y-1">
           <InstallPWA />
           <button
+            onClick={openPasswordModal}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-colors"
+          >
+            <KeyRound size={20} className="text-gray-400" />
+            Alterar Senha
+          </button>
+          <button
             onClick={logout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors mt-2"
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors"
           >
             <LogOut size={20} />
             Sair
@@ -203,6 +246,62 @@ export default function App() {
           )}
         </div>
       </main>
+
+      {/* Change Password Modal */}
+      <Modal isOpen={isPasswordModal} onClose={() => setIsPasswordModal(false)} title="Alterar Senha">
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div>
+            <Label>Senha atual</Label>
+            <Input
+              type="password"
+              required
+              placeholder="Digite sua senha atual"
+              value={pwForm.current}
+              onChange={e => setPwForm({ ...pwForm, current: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label>Nova senha</Label>
+            <Input
+              type="password"
+              required
+              placeholder="Mínimo 4 caracteres"
+              value={pwForm.next}
+              onChange={e => setPwForm({ ...pwForm, next: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label>Confirmar nova senha</Label>
+            <Input
+              type="password"
+              required
+              placeholder="Repita a nova senha"
+              value={pwForm.confirm}
+              onChange={e => setPwForm({ ...pwForm, confirm: e.target.value })}
+            />
+          </div>
+
+          {pwError && (
+            <div className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-lg">
+              {pwError}
+            </div>
+          )}
+          {pwSuccess && (
+            <div className="bg-green-50 text-green-700 text-sm px-3 py-2 rounded-lg">
+              Senha alterada com sucesso!
+            </div>
+          )}
+
+          <div className="pt-2 flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setIsPasswordModal(false)}>
+              Fechar
+            </Button>
+            {!pwSuccess && (
+              <Button type="submit">Salvar</Button>
+            )}
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
