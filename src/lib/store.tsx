@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, onSnapshot, query, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from './firebase';
 import { handleFirestoreError, OperationType } from './firestore-errors';
+import { useAuth } from './authContext';
 
 export type Cliente = {
   id: string;
@@ -15,7 +17,7 @@ export type Cliente = {
 export type Faturamento = {
   id: string;
   tipo?: 'Setup' | 'Plano Performance';
-  mesReferencia?: string; // YYYY-MM, only for Plano Performance
+  mesReferencia?: string;
   data: string;
   descricao: string;
   clienteId: string;
@@ -43,9 +45,8 @@ export type Tarefa = {
   id: string;
   titulo: string;
   descricao: string;
-  concluida?: boolean; // Legacy field
+  concluida?: boolean;
   criadaEm: string;
-  // Kanban fields
   responsavelId?: string;
   prioridade?: 'Alta' | 'Média' | 'Baixa';
   dataLimite?: string;
@@ -95,25 +96,33 @@ type AppContextType = {
 
 const AppContext = createContext<AppContextType | null>(null);
 
+// Ensures Firebase has an authenticated user before Firestore operations.
+async function ensureAuth(): Promise<boolean> {
+  if (auth.currentUser) return true;
+  try {
+    await signInAnonymously(auth);
+    return true;
+  } catch (e) {
+    console.error('Firebase anonymous auth failed:', e);
+    return false;
+  }
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth();
+
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [faturamentos, setFaturamentos] = useState<Faturamento[]>([]);
   const [custos, setCustos] = useState<Custo[]>([]);
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [reunioes, setReunioes] = useState<Reuniao[]>([]);
-  const [userId, setUserId] = useState<string | null>(undefined as any);
+  const [firebaseReady, setFirebaseReady] = useState(false);
 
+  // On session login: ensure Firebase anonymous auth, then mark ready.
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUserId(user ? user.uid : null);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (userId === undefined) return;
-    if (!userId) {
+    if (!session) {
+      setFirebaseReady(false);
       setClientes([]);
       setFaturamentos([]);
       setCustos([]);
@@ -122,29 +131,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setReunioes([]);
       return;
     }
+    ensureAuth().then(ok => setFirebaseReady(ok));
+  }, [session?.id]);
+
+  // Subscribe to Firestore collections once Firebase is ready.
+  useEffect(() => {
+    if (!firebaseReady) return;
 
     const unsubClientes = onSnapshot(query(collection(db, 'clientes')), (snapshot) => {
-      setClientes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cliente)));
+      setClientes(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Cliente)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'clientes'));
 
     const unsubFaturamentos = onSnapshot(query(collection(db, 'faturamentos')), (snapshot) => {
-      setFaturamentos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Faturamento)));
+      setFaturamentos(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Faturamento)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'faturamentos'));
 
     const unsubCustos = onSnapshot(query(collection(db, 'custos')), (snapshot) => {
-      setCustos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Custo)));
+      setCustos(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Custo)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'custos'));
 
     const unsubDespesas = onSnapshot(query(collection(db, 'despesas')), (snapshot) => {
-      setDespesas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Despesa)));
+      setDespesas(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Despesa)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'despesas'));
 
     const unsubTarefas = onSnapshot(query(collection(db, 'tarefas')), (snapshot) => {
-      setTarefas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tarefa)));
+      setTarefas(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Tarefa)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'tarefas'));
 
     const unsubReunioes = onSnapshot(query(collection(db, 'reunioes')), (snapshot) => {
-      setReunioes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Reuniao)));
+      setReunioes(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Reuniao)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'reunioes'));
 
     return () => {
@@ -155,10 +170,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       unsubTarefas();
       unsubReunioes();
     };
-  }, [userId]);
+  }, [firebaseReady]);
 
   const addCliente = async (cliente: Omit<Cliente, 'id'>) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       const docRef = await addDoc(collection(db, 'clientes'), cliente);
       return docRef.id;
@@ -168,7 +184,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeCliente = async (id: string) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await deleteDoc(doc(db, 'clientes', id));
     } catch (error) {
@@ -177,7 +194,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addFaturamento = async (faturamento: Omit<Faturamento, 'id'>) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await addDoc(collection(db, 'faturamentos'), faturamento);
     } catch (error) {
@@ -186,7 +204,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeFaturamento = async (id: string) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await deleteDoc(doc(db, 'faturamentos', id));
     } catch (error) {
@@ -195,7 +214,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addCusto = async (custo: Omit<Custo, 'id'>) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await addDoc(collection(db, 'custos'), custo);
     } catch (error) {
@@ -204,7 +224,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeCusto = async (id: string) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await deleteDoc(doc(db, 'custos', id));
     } catch (error) {
@@ -213,7 +234,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addDespesa = async (despesa: Omit<Despesa, 'id'>) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await addDoc(collection(db, 'despesas'), despesa);
     } catch (error) {
@@ -222,7 +244,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeDespesa = async (id: string) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await deleteDoc(doc(db, 'despesas', id));
     } catch (error) {
@@ -231,7 +254,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTarefa = async (tarefa: Omit<Tarefa, 'id'>) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       const docRef = await addDoc(collection(db, 'tarefas'), tarefa);
       return docRef.id;
@@ -241,7 +265,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleTarefa = async (id: string, concluida: boolean) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await updateDoc(doc(db, 'tarefas', id), { concluida });
     } catch (error) {
@@ -250,7 +275,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateTarefaStatus = async (id: string, status: 'Aberta' | 'Em andamento' | 'Finalizada') => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await updateDoc(doc(db, 'tarefas', id), { status });
     } catch (error) {
@@ -259,7 +285,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateTarefa = async (id: string, updates: Partial<Omit<Tarefa, 'id'>>) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await updateDoc(doc(db, 'tarefas', id), updates as Record<string, unknown>);
     } catch (error) {
@@ -268,7 +295,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeTarefa = async (id: string) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await deleteDoc(doc(db, 'tarefas', id));
     } catch (error) {
@@ -277,7 +305,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addReuniao = async (reuniao: Omit<Reuniao, 'id'>) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await addDoc(collection(db, 'reunioes'), reuniao);
     } catch (error) {
@@ -286,7 +315,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateReuniao = async (id: string, updates: Partial<Omit<Reuniao, 'id'>>) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await updateDoc(doc(db, 'reunioes', id), updates as Record<string, unknown>);
     } catch (error) {
@@ -295,7 +325,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeReuniao = async (id: string) => {
-    if (!userId) return;
+    if (!session) return;
+    await ensureAuth();
     try {
       await deleteDoc(doc(db, 'reunioes', id));
     } catch (error) {
@@ -312,7 +343,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addDespesa, removeDespesa,
       addTarefa, toggleTarefa, updateTarefaStatus, updateTarefa, removeTarefa,
       addReuniao, updateReuniao, removeReuniao,
-      userId
+      userId: auth.currentUser?.uid ?? null,
     }}>
       {children}
     </AppContext.Provider>
