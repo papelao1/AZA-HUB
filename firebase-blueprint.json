@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "Cliente": {
+      "title": "Cliente",
+      "description": "Um cliente da empresa",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID do usuário dono deste registro" },
+        "nome": { "type": "string", "description": "Nome do cliente" },
+        "servico": { "type": "string", "description": "Serviço contratado" },
+        "valorMensal": { "type": "number", "description": "Valor mensal pago pelo cliente" },
+        "status": { "type": "string", "enum": ["Ativo", "Inativo"] },
+        "dataEntrada": { "type": "string", "format": "date", "description": "Data de entrada do cliente" }
+      },
+      "required": ["userId", "nome", "servico", "valorMensal", "status", "dataEntrada"]
+    },
+    "Faturamento": {
+      "title": "Faturamento",
+      "description": "Um registro de faturamento/receita",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID do usuário dono deste registro" },
+        "data": { "type": "string", "format": "date" },
+        "descricao": { "type": "string" },
+        "clienteId": { "type": "string" },
+        "valor": { "type": "number" },
+        "status": { "type": "string", "enum": ["Recebido", "Pendente"] }
+      },
+      "required": ["userId", "data", "descricao", "clienteId", "valor", "status"]
+    },
+    "Custo": {
+      "title": "Custo",
+      "description": "Um registro de custo variável",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID do usuário dono deste registro" },
+        "data": { "type": "string", "format": "date" },
+        "categoria": { "type": "string", "enum": ["Operacional", "Produto", "Marketing", "Pessoal", "Outro"] },
+        "descricao": { "type": "string" },
+        "valor": { "type": "number" }
+      },
+      "required": ["userId", "data", "categoria", "descricao", "valor"]
+    },
+    "Despesa": {
+      "title": "Despesa",
+      "description": "Um registro de despesa fixa",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID do usuário dono deste registro" },
+        "data": { "type": "string", "format": "date" },
+        "categoria": { "type": "string", "enum": ["Aluguel", "Internet", "Software", "Contador", "Outros"] },
+        "descricao": { "type": "string" },
+        "valor": { "type": "number" }
+      },
+      "required": ["userId", "data", "categoria", "descricao", "valor"]
+    }
+  },
+  "firestore": {
+    "/clientes/{clienteId}": {
+      "schema": { "$ref": "#/entities/Cliente" },
+      "description": "Coleção de clientes"
+    },
+    "/faturamentos/{faturamentoId}": {
+      "schema": { "$ref": "#/entities/Faturamento" },
+      "description": "Coleção de faturamentos"
+    },
+    "/custos/{custoId}": {
+      "schema": { "$ref": "#/entities/Custo" },
+      "description": "Coleção de custos"
+    },
+    "/despesas/{despesaId}": {
+      "schema": { "$ref": "#/entities/Despesa" },
+      "description": "Coleção de despesas"
+    }
+  }
+}
