@@ -6,7 +6,7 @@ import {
 import { cn } from './lib/utils';
 import { useAppStore } from './lib/store';
 import { useAuth } from './lib/authContext';
-import { TAG_PERMISSIONS, TAG_COLORS, getUsers, saveUsers } from './lib/authUsers';
+import { TAG_PERMISSIONS, TAG_COLORS } from './lib/authUsers';
 import { Modal, Button, Input, Label } from './components/ui';
 import Dashboard from './pages/Dashboard';
 import Faturamento from './pages/Faturamento';
@@ -49,7 +49,7 @@ const ALL_MENU_ITEMS = [
 
 export default function App() {
   const { userId } = useAppStore();
-  const { session, logout } = useAuth();
+  const { session, logout, updateUser, users: authUsers } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -66,12 +66,11 @@ export default function App() {
     setIsPasswordModal(true);
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwError(null);
     setPwSuccess(false);
-    const users = getUsers();
-    const me = users.find(u => u.id === session?.id);
+    const me = authUsers.find(u => u.id === session?.id);
     if (!me || me.password !== pwForm.current) {
       setPwError('Senha atual incorreta.');
       return;
@@ -84,7 +83,7 @@ export default function App() {
       setPwError('As senhas não coincidem.');
       return;
     }
-    saveUsers(users.map(u => u.id === me.id ? { ...u, password: pwForm.next } : u));
+    await updateUser(session!.id, { password: pwForm.next });
     setPwSuccess(true);
     setPwForm({ current: '', next: '', confirm: '' });
   };

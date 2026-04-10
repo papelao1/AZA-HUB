@@ -19,6 +19,7 @@ export default function Admin() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Omit<UserRecord, 'id'>>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
 
   const openNew = () => {
     setFormData(EMPTY_FORM);
@@ -38,21 +39,41 @@ export default function Admin() {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      updateUser(editingId, formData);
-    } else {
-      addUser(formData);
+    setSaving(true);
+    try {
+      if (editingId) {
+        const updates: Partial<Omit<UserRecord, 'id'>> = {
+          nome: formData.nome,
+          username: formData.username,
+          tag: formData.tag,
+          status: formData.status,
+        };
+        // Only update password if a new one was typed
+        if (formData.password.trim()) {
+          updates.password = formData.password.trim();
+        }
+        await updateUser(editingId, updates);
+      } else {
+        await addUser(formData);
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error('Erro ao salvar usuário:', err);
+    } finally {
+      setSaving(false);
     }
-    setIsModalOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (deleteId) {
-      deleteUser(deleteId);
-      setDeleteId(null);
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteUser(deleteId);
+    } catch (err) {
+      console.error('Erro ao excluir usuário:', err);
     }
+    setDeleteId(null);
   };
 
   const TAG_LABELS: Record<UserTag, string> = {
@@ -139,7 +160,7 @@ export default function Admin() {
               {users.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-gray-400">
-                    Nenhum usuário cadastrado.
+                    Carregando usuários...
                   </td>
                 </tr>
               )}
@@ -176,11 +197,11 @@ export default function Admin() {
             />
           </div>
           <div>
-            <Label>Senha</Label>
+            <Label>Senha {editingId && <span className="text-gray-400 font-normal">(deixe em branco para não alterar)</span>}</Label>
             <Input
               type="text"
               required={!editingId}
-              placeholder={editingId ? 'Deixe em branco para não alterar' : 'Defina uma senha'}
+              placeholder={editingId ? 'Deixe em branco para manter a atual' : 'Defina uma senha'}
               value={formData.password}
               onChange={e => setFormData({ ...formData, password: e.target.value })}
             />
@@ -214,8 +235,8 @@ export default function Admin() {
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit">
-              {editingId ? 'Salvar Alterações' : 'Criar Usuário'}
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Criar Usuário'}
             </Button>
           </div>
         </form>
@@ -227,7 +248,6 @@ export default function Admin() {
           <p className="text-gray-600">
             Tem certeza que deseja excluir o usuário{' '}
             <strong>{users.find(u => u.id === deleteId)?.nome}</strong>?
-            Esta ação não pode ser desfeita.
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="secondary" onClick={() => setDeleteId(null)}>Cancelar</Button>

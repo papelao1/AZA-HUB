@@ -1,93 +1,119 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { signInAnonymously } from 'firebase/auth';
-import { auth } from './firebase';
 import {
-  getUsers, saveUsers, loginUser, logoutUser, getSession,
-  UserRecord, UserSession,
+  collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc,
+} from 'firebase/firestore';
+import { auth, db } from './firebase';
+import {
+  UserRecord, UserSession, UserTag,
+  DEFAULT_USERS, getSession, saveSession, clearSession,
 } from './authUsers';
 
 type AuthContextType = {
   session: UserSession | null;
+  users: UserRecord[];
+  usersLoading: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-  users: UserRecord[];
-  addUser: (user: Omit<UserRecord, 'id'>) => void;
-  updateUser: (id: string, updates: Partial<Omit<UserRecord, 'id'>>) => void;
-  deleteUser: (id: string) => void;
+  addUser: (user: Omit<UserRecord, 'id'>) => Promise<void>;
+  updateUser: (id: string, updates: Partial<Omit<UserRecord, 'id'>>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<UserSession | null>(getSession);
-  const [users, setUsersState] = useState<UserRecord[]>(getUsers);
+  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [firebaseReady, setFirebaseReady] = useState(false);
 
-  // If session exists but Firebase isn't authed (e.g. after page refresh with cleared Firebase),
-  // sign in anonymously so Firestore operations work.
+  // Step 1: sign in anonymously as soon as the app loads (needed to access Firestore)
   useEffect(() => {
-    if (!session) return;
-    const unsub = auth.onAuthStateChanged(user => {
-      if (!user) {
-        signInAnonymously(auth).catch(e =>
-          console.warn('Firebase anonymous auth failed (Firestore may not load):', e)
-        );
+    const init = async () => {
+      try {
+        if (!auth.currentUser) {
+          await signInAnonymously(auth);
+        }
+      } catch (e) {
+        console.error('Firebase anonymous auth failed:', e);
       }
-    });
-    return () => unsub();
-  }, [session?.id]);
+      setFirebaseReady(true);
+    };
+    init();
+  }, []);
 
-  const refreshUsers = () => setUsersState(getUsers());
+  // Step 2: subscribe to the 'usuarios' Firestore collection
+  useEffect(() => {
+    if (!firebaseReady) return;
+
+    const unsub = onSnapshot(
+      query(collection(db, 'usuarios')),
+      (snapshot) => {
+        if (snapshot.empty) {
+          // Seed default users on first run
+          Promise.all(DEFAULT_USERS.map(u => addDoc(collection(db, 'usuarios'), u)))
+            .catch(console.error);
+          return; // next snapshot will have the seeded users
+        }
+        setUsers(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as UserRecord)));
+        setUsersLoading(false);
+      },
+      (err) => {
+        console.error('Failed to load usuarios:', err);
+        setUsersLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, [firebaseReady]);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    const s = loginUser(username, password);
-    if (!s) return false;
-    try {
-      await signInAnonymously(auth);
-    } catch (e) {
-      console.warn('Firebase anonymous auth failed (Firestore may not load):', e);
-    }
+    const user = users.find(
+      u => u.username === username.trim() && u.password === password && u.status === 'Ativo'
+    );
+    if (!user) return false;
+    const s: UserSession = { id: user.id, nome: user.nome, username: user.username, tag: user.tag };
+    saveSession(s);
     setSession(s);
     return true;
   };
 
   const logout = () => {
-    logoutUser();
-    auth.signOut().catch(() => {});
+    clearSession();
     setSession(null);
+    // Do NOT sign out from Firebase — the anonymous session is shared infrastructure
   };
 
-  const addUser = (user: Omit<UserRecord, 'id'>) => {
-    const current = getUsers();
-    saveUsers([...current, { ...user, id: `user_${Date.now()}` }]);
-    refreshUsers();
+  const addUser = async (user: Omit<UserRecord, 'id'>) => {
+    await addDoc(collection(db, 'usuarios'), user);
   };
 
-  const updateUser = (id: string, updates: Partial<Omit<UserRecord, 'id'>>) => {
-    const current = getUsers();
-    saveUsers(current.map(u => (u.id === id ? { ...u, ...updates } : u)));
-    refreshUsers();
+  const updateUser = async (id: string, updates: Partial<Omit<UserRecord, 'id'>>) => {
+    await updateDoc(doc(db, 'usuarios', id), updates as Record<string, unknown>);
+    // Update session if the logged-in user changed their own data
     if (session?.id === id) {
-      const updated = getUsers().find(u => u.id === id);
-      if (updated) {
+      const current = users.find(u => u.id === id);
+      if (current) {
+        const merged = { ...current, ...updates };
         const newSession: UserSession = {
-          id: updated.id,
-          nome: updated.nome,
-          username: updated.username,
-          tag: updated.tag,
+          id: merged.id, nome: merged.nome, username: merged.username, tag: merged.tag as UserTag,
         };
+        saveSession(newSession);
         setSession(newSession);
-        sessionStorage.setItem('azahub_session', JSON.stringify(newSession));
       }
     }
   };
 
-  const deleteUser = (id: string) => {
-    saveUsers(getUsers().filter(u => u.id !== id));
-    refreshUsers();
+  const deleteUser = async (id: string) => {
+    await deleteDoc(doc(db, 'usuarios', id));
   };
 
   return (
-    <AuthContext.Provider value={{ session, login, logout, users, addUser, updateUser, deleteUser }}>
+    <AuthContext.Provider value={{
+      session, users, usersLoading,
+      login, logout, addUser, updateUser, deleteUser,
+    }}>
       {children}
     </AuthContext.Provider>
   );
