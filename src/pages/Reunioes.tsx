@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore, Reuniao } from '../lib/store';
 import { useAuth } from '../lib/authContext';
 import { Card, Button, Modal, Input, Select, Label } from '../components/ui';
-import { Plus, Trash2, Pencil, CalendarDays, Trophy } from 'lucide-react';
+import { Plus, Trash2, Pencil, CalendarDays, Trophy, Link as LinkIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { formatDate } from '../lib/utils';
 import {
@@ -35,6 +35,7 @@ const EMPTY_FORM: Omit<Reuniao, 'id'> = {
   tipo: 'Discovery',
   status: 'Agendada',
   observacoes: '',
+  link: '',
 };
 
 export default function Reunioes() {
@@ -106,6 +107,7 @@ export default function Reunioes() {
       tipo: r.tipo,
       status: r.status,
       observacoes: r.observacoes,
+      link: r.link ?? '',
     });
     setEditingId(r.id);
     setIsModalOpen(true);
@@ -202,6 +204,7 @@ export default function Reunioes() {
                 <th className="pb-3 font-medium">Empresa</th>
                 <th className="pb-3 font-medium">Tipo</th>
                 <th className="pb-3 font-medium text-center">Status</th>
+                <th className="pb-3 font-medium text-center">Link</th>
                 <th className="pb-3 font-medium text-center">Ações</th>
               </tr>
             </thead>
@@ -232,6 +235,21 @@ export default function Reunioes() {
                     </span>
                   </td>
                   <td className="py-3 text-center">
+                    {r.link ? (
+                      <a
+                        href={r.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-xs font-medium"
+                        title="Entrar na reunião"
+                      >
+                        <LinkIcon size={12} /> Entrar
+                      </a>
+                    ) : (
+                      <span className="text-gray-300 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <button
                         onClick={() => openEdit(r)}
@@ -253,7 +271,7 @@ export default function Reunioes() {
               ))}
               {filteredReunioes.length === 0 && (
                 <tr>
-                  <td colSpan={canSeeAll ? 8 : 7} className="py-8 text-center text-gray-400">
+                  <td colSpan={canSeeAll ? 9 : 8} className="py-8 text-center text-gray-400">
                     Nenhuma reunião encontrada.
                   </td>
                 </tr>
@@ -457,6 +475,15 @@ export default function Reunioes() {
                 <option value="Cancelada">Cancelada</option>
               </Select>
             </div>
+          </div>
+          <div>
+            <Label>Link da Reunião</Label>
+            <Input
+              type="url"
+              placeholder="https://meet.google.com/... ou https://zoom.us/..."
+              value={formData.link ?? ''}
+              onChange={e => setFormData({ ...formData, link: e.target.value })}
+            />
           </div>
           <div>
             <Label>Observações</Label>

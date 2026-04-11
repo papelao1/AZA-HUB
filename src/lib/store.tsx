@@ -66,6 +66,7 @@ export type Reuniao = {
   tipo: 'Discovery' | 'Apresentação' | 'Fechamento' | 'Outro';
   status: 'Agendada' | 'Realizada' | 'No-show' | 'Cancelada';
   observacoes: string;
+  link?: string;
 };
 
 type AppContextType = {
