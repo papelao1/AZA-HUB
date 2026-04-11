@@ -15,7 +15,7 @@ export default function Dashboard() {
 
   // ── Métricas do mês ──────────────────────────────────────────────────────
   const faturamentoMes = faturamentos
-    .filter(f => f.data.startsWith(currentMonth))
+    .filter(f => f.data.startsWith(currentMonth) && f.status === 'Recebido')
     .reduce((acc, curr) => acc + curr.valor, 0);
 
   const custosMes = custos
