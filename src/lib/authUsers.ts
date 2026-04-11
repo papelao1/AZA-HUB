@@ -23,10 +23,10 @@ const SESSION_KEY = 'azahub_session';
 
 export const TAG_PERMISSIONS: Record<UserTag, string[]> = {
   ADMIN: ['dashboard', 'faturamento', 'custos', 'despesas', 'lucro', 'clientes', 'tarefas', 'reunioes', 'admin', 'aza-ia'],
-  GESTOR: ['dashboard', 'faturamento', 'custos', 'despesas', 'lucro', 'clientes', 'tarefas', 'reunioes', 'aza-ia'],
-  SDR: ['tarefas', 'reunioes'],
-  FINANCEIRO: ['dashboard', 'faturamento', 'custos', 'despesas', 'lucro'],
-  COMERCIAL: ['clientes', 'tarefas', 'reunioes'],
+  GESTOR:     ['dashboard', 'faturamento', 'tarefas', 'reunioes', 'aza-ia'],
+  SDR:        ['dashboard', 'faturamento', 'tarefas', 'reunioes', 'aza-ia'],
+  FINANCEIRO: ['dashboard', 'faturamento', 'tarefas', 'reunioes', 'aza-ia'],
+  COMERCIAL:  ['dashboard', 'faturamento', 'tarefas', 'reunioes', 'aza-ia'],
 };
 
 export const TAG_COLORS: Record<UserTag, string> = {

@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
 import { useAppStore, Faturamento as FaturamentoType } from '../lib/store';
+import { useAuth } from '../lib/authContext';
 import { Card, Button, Modal, Input, Select, Label } from '../components/ui';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { Plus, Trash2 } from 'lucide-react';
 
 export default function Faturamento() {
   const { faturamentos, addFaturamento, removeFaturamento, clientes } = useAppStore();
+  const { session } = useAuth();
+  const isAdmin = session?.tag === 'ADMIN';
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [filterTipo, setFilterTipo] = useState<'Todos' | 'Setup' | 'Plano Performance'>('Todos');
+  const [filterTipo, setFilterTipo] = useState<'Todos' | 'Setup' | 'Plano Performance' | 'Produto Front'>('Todos');
 
-  const [formData, setFormData] = useState<Omit<FaturamentoType, 'id'>>({
-    tipo: 'Plano Performance',
+  const emptyForm = (): Omit<FaturamentoType, 'id'> => ({
+    tipo: isAdmin ? 'Plano Performance' : 'Produto Front',
     mesReferencia: new Date().toISOString().slice(0, 7),
     data: new Date().toISOString().slice(0, 10),
     descricao: '',
@@ -21,38 +25,46 @@ export default function Faturamento() {
     status: 'Recebido',
   });
 
-  const filteredFaturamentos = faturamentos
+  const [formData, setFormData] = useState<Omit<FaturamentoType, 'id'>>(emptyForm());
+
+  // Não-ADMIN veem só "Produto Front"
+  const visibleFaturamentos = isAdmin
+    ? faturamentos
+    : faturamentos.filter(f => f.tipo === 'Produto Front');
+
+  const filteredFaturamentos = visibleFaturamentos
     .filter(f => f.data.startsWith(filterMonth))
-    .filter(f => filterTipo === 'Todos' || (f.tipo ?? 'Plano Performance') === filterTipo)
+    .filter(f => !isAdmin || filterTipo === 'Todos' || (f.tipo ?? 'Plano Performance') === filterTipo)
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-  const totalSetup = filteredFaturamentos
-    .filter(f => (f.tipo ?? 'Plano Performance') === 'Setup')
-    .reduce((acc, curr) => acc + curr.valor, 0);
-
-  const totalPerformance = filteredFaturamentos
-    .filter(f => (f.tipo ?? 'Plano Performance') === 'Plano Performance')
-    .reduce((acc, curr) => acc + curr.valor, 0);
-
   const totalFaturado = filteredFaturamentos.reduce((acc, curr) => acc + curr.valor, 0);
+  const totalSetup = isAdmin
+    ? filteredFaturamentos.filter(f => f.tipo === 'Setup').reduce((acc, curr) => acc + curr.valor, 0)
+    : 0;
+  const totalPerformance = isAdmin
+    ? filteredFaturamentos.filter(f => (f.tipo ?? 'Plano Performance') === 'Plano Performance').reduce((acc, curr) => acc + curr.valor, 0)
+    : 0;
+  const totalProdutoFront = isAdmin
+    ? filteredFaturamentos.filter(f => f.tipo === 'Produto Front').reduce((acc, curr) => acc + curr.valor, 0)
+    : totalFaturado;
+
+  const MONTH_NAMES = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+  ];
+  const formatMesReferencia = (mes?: string) => {
+    if (!mes) return '—';
+    const [year, month] = mes.split('-');
+    return `${MONTH_NAMES[parseInt(month) - 1]}/${year}`;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const payload = { ...formData };
-    if (payload.tipo === 'Setup') {
-      delete payload.mesReferencia;
-    }
+    if (payload.tipo === 'Setup') delete payload.mesReferencia;
     addFaturamento(payload);
     setIsModalOpen(false);
-    setFormData({
-      tipo: 'Plano Performance',
-      mesReferencia: new Date().toISOString().slice(0, 7),
-      data: new Date().toISOString().slice(0, 10),
-      descricao: '',
-      clienteId: '',
-      valor: 0,
-      status: 'Recebido',
-    });
+    setFormData(emptyForm());
   };
 
   const confirmDelete = () => {
@@ -62,65 +74,73 @@ export default function Faturamento() {
     }
   };
 
-  const MONTH_NAMES = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-  ];
+  const tipoLabel = (tipo?: string) => tipo ?? 'Plano Performance';
 
-  const formatMesReferencia = (mes?: string) => {
-    if (!mes) return '—';
-    const [year, month] = mes.split('-');
-    return `${MONTH_NAMES[parseInt(month) - 1]}/${year}`;
+  const tipoBadge = (tipo?: string) => {
+    if (tipo === 'Setup') return 'bg-blue-100 text-blue-700';
+    if (tipo === 'Produto Front') return 'bg-orange-100 text-orange-700';
+    return 'bg-purple-100 text-purple-700';
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Faturamento</h1>
-        <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
+        <Button onClick={() => { setFormData(emptyForm()); setIsModalOpen(true); }} className="flex items-center gap-2">
           <Plus size={20} /> Novo Lançamento
         </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 font-medium">Total Faturado</p>
-          <p className="text-xl font-bold text-green-600">{formatCurrency(totalFaturado)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 font-medium">Total Setup</p>
-          <p className="text-xl font-bold text-blue-600">{formatCurrency(totalSetup)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-gray-500 font-medium">Total Performance</p>
-          <p className="text-xl font-bold text-purple-600">{formatCurrency(totalPerformance)}</p>
-        </Card>
-      </div>
+      {isAdmin ? (
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <p className="text-sm text-gray-500 font-medium">Total Faturado</p>
+            <p className="text-xl font-bold text-green-600">{formatCurrency(totalFaturado)}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-sm text-gray-500 font-medium">Total Setup</p>
+            <p className="text-xl font-bold text-blue-600">{formatCurrency(totalSetup)}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-sm text-gray-500 font-medium">Total Performance</p>
+            <p className="text-xl font-bold text-purple-600">{formatCurrency(totalPerformance)}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-sm text-gray-500 font-medium">Total Produto Front</p>
+            <p className="text-xl font-bold text-orange-600">{formatCurrency(totalProdutoFront)}</p>
+          </Card>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card className="p-4">
+            <p className="text-sm text-gray-500 font-medium">Total Produto Front (Mês)</p>
+            <p className="text-xl font-bold text-orange-600">{formatCurrency(totalFaturado)}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-sm text-gray-500 font-medium">Registros no Período</p>
+            <p className="text-xl font-bold text-gray-700">{filteredFaturamentos.length}</p>
+          </Card>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100 items-end">
         <div>
           <Label className="mb-1">Mês</Label>
-          <Input
-            type="month"
-            value={filterMonth}
-            onChange={(e) => setFilterMonth(e.target.value)}
-            className="w-auto"
-          />
+          <Input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="w-auto" />
         </div>
-        <div>
-          <Label className="mb-1">Tipo</Label>
-          <Select
-            value={filterTipo}
-            onChange={e => setFilterTipo(e.target.value as typeof filterTipo)}
-            className="w-auto"
-          >
-            <option value="Todos">Todos</option>
-            <option value="Setup">Setup</option>
-            <option value="Plano Performance">Plano Performance</option>
-          </Select>
-        </div>
+        {isAdmin && (
+          <div>
+            <Label className="mb-1">Tipo</Label>
+            <Select value={filterTipo} onChange={e => setFilterTipo(e.target.value as typeof filterTipo)} className="w-auto">
+              <option value="Todos">Todos</option>
+              <option value="Setup">Setup</option>
+              <option value="Plano Performance">Plano Performance</option>
+              <option value="Produto Front">Produto Front</option>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -130,7 +150,7 @@ export default function Faturamento() {
             <thead>
               <tr className="border-b border-gray-200 text-sm text-gray-500">
                 <th className="pb-3 font-medium">Tipo</th>
-                <th className="pb-3 font-medium">Mês Ref.</th>
+                {isAdmin && <th className="pb-3 font-medium">Mês Ref.</th>}
                 <th className="pb-3 font-medium">Data Receb.</th>
                 <th className="pb-3 font-medium">Descrição</th>
                 <th className="pb-3 font-medium">Cliente</th>
@@ -140,30 +160,26 @@ export default function Faturamento() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {filteredFaturamentos.map((item) => (
+              {filteredFaturamentos.map(item => (
                 <tr key={item.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                   <td className="py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      (item.tipo ?? 'Plano Performance') === 'Setup'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-purple-100 text-purple-700'
-                    }`}>
-                      {item.tipo ?? 'Plano Performance'}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${tipoBadge(item.tipo)}`}>
+                      {tipoLabel(item.tipo)}
                     </span>
                   </td>
-                  <td className="py-3 text-gray-500 text-xs">
-                    {(item.tipo ?? 'Plano Performance') === 'Plano Performance'
-                      ? formatMesReferencia(item.mesReferencia)
-                      : '—'}
-                  </td>
+                  {isAdmin && (
+                    <td className="py-3 text-gray-500 text-xs">
+                      {(item.tipo ?? 'Plano Performance') === 'Plano Performance'
+                        ? formatMesReferencia(item.mesReferencia)
+                        : '—'}
+                    </td>
+                  )}
                   <td className="py-3 text-gray-900">{formatDate(item.data)}</td>
                   <td className="py-3 text-gray-600">{item.descricao}</td>
                   <td className="py-3 text-gray-900 font-medium">
                     {clientes.find(c => c.id === item.clienteId)?.nome || 'Cliente Excluído'}
                   </td>
-                  <td className="py-3 text-right font-medium text-green-600">
-                    {formatCurrency(item.valor)}
-                  </td>
+                  <td className="py-3 text-right font-medium text-green-600">{formatCurrency(item.valor)}</td>
                   <td className="py-3 text-center">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       item.status === 'Recebido' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
@@ -172,11 +188,7 @@ export default function Faturamento() {
                     </span>
                   </td>
                   <td className="py-3 text-center">
-                    <button
-                      onClick={() => setItemToDelete(item.id)}
-                      className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                      title="Excluir"
-                    >
+                    <button onClick={() => setItemToDelete(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-1">
                       <Trash2 size={18} />
                     </button>
                   </td>
@@ -184,7 +196,7 @@ export default function Faturamento() {
               ))}
               {filteredFaturamentos.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-gray-500">
+                  <td colSpan={isAdmin ? 8 : 7} className="py-8 text-center text-gray-500">
                     Nenhum faturamento encontrado neste período.
                   </td>
                 </tr>
@@ -194,22 +206,29 @@ export default function Faturamento() {
         </div>
       </Card>
 
-      {/* New Lançamento Modal */}
+      {/* Modal Novo Lançamento */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Novo Lançamento">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label>Tipo</Label>
-            <Select
-              required
-              value={formData.tipo}
-              onChange={e => setFormData({ ...formData, tipo: e.target.value as 'Setup' | 'Plano Performance' })}
-            >
-              <option value="Plano Performance">Plano Performance</option>
-              <option value="Setup">Setup</option>
-            </Select>
-          </div>
+          {isAdmin ? (
+            <div>
+              <Label>Tipo</Label>
+              <Select
+                required
+                value={formData.tipo}
+                onChange={e => setFormData({ ...formData, tipo: e.target.value as FaturamentoType['tipo'] })}
+              >
+                <option value="Plano Performance">Plano Performance</option>
+                <option value="Setup">Setup</option>
+                <option value="Produto Front">Produto Front (site)</option>
+              </Select>
+            </div>
+          ) : (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
+              <p className="text-sm font-medium text-orange-700">Tipo: Produto Front (site)</p>
+            </div>
+          )}
 
-          {formData.tipo === 'Plano Performance' && (
+          {isAdmin && formData.tipo === 'Plano Performance' && (
             <div>
               <Label>Mês de Referência</Label>
               <Input
@@ -235,7 +254,7 @@ export default function Faturamento() {
             <Input
               type="text"
               required
-              placeholder="Ex: Mensalidade Consultoria"
+              placeholder="Ex: Site institucional"
               value={formData.descricao}
               onChange={e => setFormData({ ...formData, descricao: e.target.value })}
             />
@@ -282,7 +301,7 @@ export default function Faturamento() {
         </form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      {/* Modal Confirmar Exclusão */}
       <Modal isOpen={!!itemToDelete} onClose={() => setItemToDelete(null)} title="Confirmar Exclusão">
         <div className="space-y-4">
           <p className="text-gray-600">Tem certeza que deseja excluir este faturamento?</p>

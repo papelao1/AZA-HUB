@@ -16,7 +16,7 @@ export type Cliente = {
 
 export type Faturamento = {
   id: string;
-  tipo?: 'Setup' | 'Plano Performance';
+  tipo?: 'Setup' | 'Plano Performance' | 'Produto Front';
   mesReferencia?: string;
   data: string;
   descricao: string;
