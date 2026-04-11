@@ -33,16 +33,17 @@ export default function Dashboard() {
     .reduce((acc, curr) => acc + curr.valor, 0);
 
   // ── Dados do gráfico ─────────────────────────────────────────────────────
+  const faturamentosRecebidos = faturamentos.filter(f => f.status === 'Recebido');
   const monthsMap = new Map<string, { faturamento: number; custosDespesas: number; lucro: number }>();
 
-  [...faturamentos, ...custos, ...despesas].forEach(item => {
+  [...faturamentosRecebidos, ...custos, ...despesas].forEach(item => {
     const month = item.data.slice(0, 7);
     if (!monthsMap.has(month)) {
       monthsMap.set(month, { faturamento: 0, custosDespesas: 0, lucro: 0 });
     }
   });
 
-  faturamentos.forEach(f => {
+  faturamentosRecebidos.forEach(f => {
     const month = f.data.slice(0, 7);
     const d = monthsMap.get(month)!;
     d.faturamento += f.valor;

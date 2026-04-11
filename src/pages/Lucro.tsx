@@ -8,16 +8,18 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 export default function Lucro() {
   const { faturamentos, custos, despesas } = useAppStore();
 
+  const faturamentosRecebidos = faturamentos.filter(f => f.status === 'Recebido');
+
   const monthsMap = new Map<string, { faturamento: number, custos: number, despesas: number, lucro: number, margem: number }>();
-  
-  [...faturamentos, ...custos, ...despesas].forEach(item => {
+
+  [...faturamentosRecebidos, ...custos, ...despesas].forEach(item => {
     const month = item.data.slice(0, 7);
     if (!monthsMap.has(month)) {
       monthsMap.set(month, { faturamento: 0, custos: 0, despesas: 0, lucro: 0, margem: 0 });
     }
   });
 
-  faturamentos.forEach(f => {
+  faturamentosRecebidos.forEach(f => {
     const data = monthsMap.get(f.data.slice(0, 7))!;
     data.faturamento += f.valor;
     data.lucro += f.valor;
