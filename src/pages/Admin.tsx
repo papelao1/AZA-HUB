@@ -20,10 +20,12 @@ export default function Admin() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Omit<UserRecord, 'id'>>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const openNew = () => {
     setFormData(EMPTY_FORM);
     setEditingId(null);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -36,31 +38,60 @@ export default function Admin() {
       status: user.status,
     });
     setEditingId(user.id);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     setSaving(true);
+
+    const trimmedUsername = formData.username.trim().toLowerCase();
+    const trimmedPassword = formData.password.trim();
+
+    // Check for duplicate username
+    const isDuplicate = users.some(
+      u => u.username === trimmedUsername && u.id !== editingId
+    );
+    if (isDuplicate) {
+      setFormError(`O usuário "@${trimmedUsername}" já existe. Escolha outro.`);
+      setSaving(false);
+      return;
+    }
+
+    // Require password for new users
+    if (!editingId && !trimmedPassword) {
+      setFormError('A senha é obrigatória para novos usuários.');
+      setSaving(false);
+      return;
+    }
+
     try {
       if (editingId) {
         const updates: Partial<Omit<UserRecord, 'id'>> = {
-          nome: formData.nome,
-          username: formData.username,
+          nome: formData.nome.trim(),
+          username: trimmedUsername,
           tag: formData.tag,
           status: formData.status,
         };
-        // Only update password if a new one was typed
-        if (formData.password.trim()) {
-          updates.password = formData.password.trim();
+        if (trimmedPassword) {
+          updates.password = trimmedPassword;
         }
         await updateUser(editingId, updates);
       } else {
-        await addUser(formData);
+        await addUser({
+          nome: formData.nome.trim(),
+          username: trimmedUsername,
+          password: trimmedPassword,
+          tag: formData.tag,
+          status: formData.status,
+        });
       }
       setIsModalOpen(false);
     } catch (err) {
       console.error('Erro ao salvar usuário:', err);
+      setFormError('Erro ao salvar. Verifique sua conexão e tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -172,7 +203,7 @@ export default function Admin() {
       {/* New / Edit User Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); setFormError(null); }}
         title={editingId ? 'Editar Usuário' : 'Novo Usuário'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -231,6 +262,9 @@ export default function Admin() {
               <option value="Inativo">Inativo</option>
             </Select>
           </div>
+          {formError && (
+            <div className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-lg">{formError}</div>
+          )}
           <div className="pt-4 flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
               Cancelar

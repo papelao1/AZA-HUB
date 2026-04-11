@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { signInAnonymously } from 'firebase/auth';
 import {
-  collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc,
+  collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc, getDocs, where,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import {
@@ -69,14 +69,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [firebaseReady]);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    const user = users.find(
-      u => u.username === username.trim() && u.password === password && u.status === 'Ativo'
-    );
-    if (!user) return false;
-    const s: UserSession = { id: user.id, nome: user.nome, username: user.username, tag: user.tag };
-    saveSession(s);
-    setSession(s);
-    return true;
+    try {
+      // Ensure Firebase anonymous auth is active before querying
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+      // Query Firestore directly — avoids stale state and race conditions
+      const q = query(
+        collection(db, 'usuarios'),
+        where('username', '==', username.trim()),
+        where('status', '==', 'Ativo'),
+      );
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) return false;
+
+      const userDoc = snapshot.docs.find(d => (d.data().password as string) === password.trim());
+      if (!userDoc) return false;
+
+      const userData = { id: userDoc.id, ...userDoc.data() } as UserRecord;
+      const s: UserSession = { id: userData.id, nome: userData.nome, username: userData.username, tag: userData.tag };
+      saveSession(s);
+      setSession(s);
+      return true;
+    } catch (err) {
+      console.error('Login error:', err);
+      return false;
+    }
   };
 
   const logout = () => {
