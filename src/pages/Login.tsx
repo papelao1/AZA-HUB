@@ -23,9 +23,13 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const ok = await login(username.trim(), password);
+    const result = await login(username.trim(), password);
     setLoading(false);
-    if (!ok) setError('Usuário ou senha incorretos, ou conta inativa.');
+    if (result === 'error') {
+      setError('Erro de conexão. Verifique sua internet e tente novamente.');
+    } else if (!result) {
+      setError('Usuário ou senha incorretos, ou conta inativa.');
+    }
   };
 
   const openForgot = () => {
