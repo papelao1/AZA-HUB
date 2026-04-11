@@ -78,6 +78,7 @@ type AppContextType = {
   addCliente: (cliente: Omit<Cliente, 'id'>) => Promise<string | void>;
   removeCliente: (id: string) => Promise<void>;
   addFaturamento: (faturamento: Omit<Faturamento, 'id'>) => Promise<void>;
+  updateFaturamentoStatus: (id: string, status: 'Recebido' | 'Pendente') => Promise<void>;
   removeFaturamento: (id: string) => Promise<void>;
   addCusto: (custo: Omit<Custo, 'id'>) => Promise<void>;
   removeCusto: (id: string) => Promise<void>;
@@ -200,6 +201,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await addDoc(collection(db, 'faturamentos'), faturamento);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'faturamentos');
+    }
+  };
+
+  const updateFaturamentoStatus = async (id: string, status: 'Recebido' | 'Pendente') => {
+    if (!session) return;
+    await ensureAuth();
+    try {
+      await updateDoc(doc(db, 'faturamentos', id), { status });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `faturamentos/${id}`);
     }
   };
 
@@ -338,7 +349,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider value={{
       clientes, faturamentos, custos, despesas, tarefas, reunioes,
       addCliente, removeCliente,
-      addFaturamento, removeFaturamento,
+      addFaturamento, updateFaturamentoStatus, removeFaturamento,
       addCusto, removeCusto,
       addDespesa, removeDespesa,
       addTarefa, toggleTarefa, updateTarefaStatus, updateTarefa, removeTarefa,

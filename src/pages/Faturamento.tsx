@@ -6,7 +6,7 @@ import { formatCurrency, formatDate } from '../lib/utils';
 import { Plus, Trash2 } from 'lucide-react';
 
 export default function Faturamento() {
-  const { faturamentos, addFaturamento, removeFaturamento, clientes } = useAppStore();
+  const { faturamentos, addFaturamento, updateFaturamentoStatus, removeFaturamento, clientes } = useAppStore();
   const { session } = useAuth();
   const isAdmin = session?.tag === 'ADMIN';
 
@@ -181,11 +181,15 @@ export default function Faturamento() {
                   </td>
                   <td className="py-3 text-right font-medium text-green-600">{formatCurrency(item.valor)}</td>
                   <td className="py-3 text-center">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      item.status === 'Recebido' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
+                    <button
+                      onClick={() => updateFaturamentoStatus(item.id, item.status === 'Recebido' ? 'Pendente' : 'Recebido')}
+                      title="Clique para alternar status"
+                      className={`px-2 py-1 rounded-full text-xs font-medium cursor-pointer transition-opacity hover:opacity-70 ${
+                        item.status === 'Recebido' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
                       {item.status}
-                    </span>
+                    </button>
                   </td>
                   <td className="py-3 text-center">
                     <button onClick={() => setItemToDelete(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-1">
