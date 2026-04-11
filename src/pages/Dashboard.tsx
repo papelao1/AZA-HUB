@@ -4,7 +4,7 @@ import { useAuth } from '../lib/authContext';
 import { Card } from '../components/ui';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, TrendingDown, TrendingUp, Users, Wallet, Circle } from 'lucide-react';
+import { DollarSign, TrendingDown, TrendingUp, Users, Wallet, Circle, Clock } from 'lucide-react';
 
 export default function Dashboard() {
   const { faturamentos, custos, despesas, clientes, tarefas, toggleTarefa } = useAppStore();
@@ -28,6 +28,9 @@ export default function Dashboard() {
 
   const lucroLiquido = faturamentoMes - custosMes - despesasMes;
   const clientesAtivos = clientes.filter(c => c.status === 'Ativo').length;
+  const previsaoEntrada = faturamentos
+    .filter(f => f.status === 'Pendente')
+    .reduce((acc, curr) => acc + curr.valor, 0);
 
   // ── Dados do gráfico ─────────────────────────────────────────────────────
   const monthsMap = new Map<string, { faturamento: number; custosDespesas: number; lucro: number }>();
@@ -87,8 +90,8 @@ export default function Dashboard() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
 
-        {/* Cards: Faturamento do mês + Clientes Ativos */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Cards: Faturamento do mês + Previsão + Clientes Ativos */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="p-4 flex items-center space-x-4">
             <div className="p-3 bg-green-100 text-green-600 rounded-lg">
               <TrendingUp size={24} />
@@ -96,6 +99,16 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 font-medium">Faturamento (Mês)</p>
               <p className="text-xl font-bold text-green-600">{formatCurrency(faturamentoMes)}</p>
+            </div>
+          </Card>
+          <Card className="p-4 flex items-center space-x-4">
+            <div className="p-3 bg-yellow-100 text-yellow-600 rounded-lg">
+              <Clock size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Previsão de Entrada</p>
+              <p className="text-xl font-bold text-yellow-600">{formatCurrency(previsaoEntrada)}</p>
+              <p className="text-xs text-gray-400">Pendentes a receber</p>
             </div>
           </Card>
           <Card className="p-4 flex items-center space-x-4">
@@ -163,12 +176,20 @@ export default function Dashboard() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <Card className="p-4 flex items-center space-x-4">
           <div className="p-3 bg-green-100 text-green-600 rounded-lg"><TrendingUp size={24} /></div>
           <div>
             <p className="text-sm text-gray-500 font-medium">Faturamento (Mês)</p>
             <p className="text-xl font-bold text-green-600">{formatCurrency(faturamentoMes)}</p>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center space-x-4">
+          <div className="p-3 bg-yellow-100 text-yellow-600 rounded-lg"><Clock size={24} /></div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Previsão de Entrada</p>
+            <p className="text-xl font-bold text-yellow-600">{formatCurrency(previsaoEntrada)}</p>
+            <p className="text-xs text-gray-400">Pendentes a receber</p>
           </div>
         </Card>
         <Card className="p-4 flex items-center space-x-4">
