@@ -3,7 +3,7 @@ import { useAppStore, Faturamento as FaturamentoType } from '../lib/store';
 import { useAuth } from '../lib/authContext';
 import { Card, Button, Modal, Input, Select, Label } from '../components/ui';
 import { formatCurrency, formatDate } from '../lib/utils';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Clock } from 'lucide-react';
 
 export default function Faturamento() {
   const { faturamentos, addFaturamento, updateFaturamentoStatus, removeFaturamento, clientes } = useAppStore();
@@ -37,15 +37,19 @@ export default function Faturamento() {
     .filter(f => !isAdmin || filterTipo === 'Todos' || (f.tipo ?? 'Plano Performance') === filterTipo)
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-  const totalFaturado = filteredFaturamentos.reduce((acc, curr) => acc + curr.valor, 0);
+  const recebidos = filteredFaturamentos.filter(f => f.status === 'Recebido');
+  const pendentes = filteredFaturamentos.filter(f => f.status === 'Pendente');
+
+  const totalFaturado = recebidos.reduce((acc, curr) => acc + curr.valor, 0);
+  const totalPendente = pendentes.reduce((acc, curr) => acc + curr.valor, 0);
   const totalSetup = isAdmin
-    ? filteredFaturamentos.filter(f => f.tipo === 'Setup').reduce((acc, curr) => acc + curr.valor, 0)
+    ? recebidos.filter(f => f.tipo === 'Setup').reduce((acc, curr) => acc + curr.valor, 0)
     : 0;
   const totalPerformance = isAdmin
-    ? filteredFaturamentos.filter(f => (f.tipo ?? 'Plano Performance') === 'Plano Performance').reduce((acc, curr) => acc + curr.valor, 0)
+    ? recebidos.filter(f => (f.tipo ?? 'Plano Performance') === 'Plano Performance').reduce((acc, curr) => acc + curr.valor, 0)
     : 0;
   const totalProdutoFront = isAdmin
-    ? filteredFaturamentos.filter(f => f.tipo === 'Produto Front').reduce((acc, curr) => acc + curr.valor, 0)
+    ? recebidos.filter(f => f.tipo === 'Produto Front').reduce((acc, curr) => acc + curr.valor, 0)
     : totalFaturado;
 
   const MONTH_NAMES = [
@@ -93,33 +97,43 @@ export default function Faturamento() {
 
       {/* Summary Cards */}
       {isAdmin ? (
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card className="p-4">
-            <p className="text-sm text-gray-500 font-medium">Total Faturado</p>
+            <p className="text-sm text-gray-500 font-medium">Total Recebido</p>
             <p className="text-xl font-bold text-green-600">{formatCurrency(totalFaturado)}</p>
           </Card>
+          <Card className="p-4 border-l-4 border-yellow-400">
+            <div className="flex items-center gap-2 mb-1">
+              <Clock size={14} className="text-yellow-500" />
+              <p className="text-sm text-gray-500 font-medium">Previsão de Entrada</p>
+            </div>
+            <p className="text-xl font-bold text-yellow-600">{formatCurrency(totalPendente)}</p>
+          </Card>
           <Card className="p-4">
-            <p className="text-sm text-gray-500 font-medium">Total Setup</p>
+            <p className="text-sm text-gray-500 font-medium">Setup Recebido</p>
             <p className="text-xl font-bold text-blue-600">{formatCurrency(totalSetup)}</p>
           </Card>
           <Card className="p-4">
-            <p className="text-sm text-gray-500 font-medium">Total Performance</p>
+            <p className="text-sm text-gray-500 font-medium">Performance Recebido</p>
             <p className="text-xl font-bold text-purple-600">{formatCurrency(totalPerformance)}</p>
           </Card>
           <Card className="p-4">
-            <p className="text-sm text-gray-500 font-medium">Total Produto Front</p>
+            <p className="text-sm text-gray-500 font-medium">Produto Front Recebido</p>
             <p className="text-xl font-bold text-orange-600">{formatCurrency(totalProdutoFront)}</p>
           </Card>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="p-4">
-            <p className="text-sm text-gray-500 font-medium">Total Produto Front (Mês)</p>
+            <p className="text-sm text-gray-500 font-medium">Total Recebido (Mês)</p>
             <p className="text-xl font-bold text-orange-600">{formatCurrency(totalFaturado)}</p>
           </Card>
-          <Card className="p-4">
-            <p className="text-sm text-gray-500 font-medium">Registros no Período</p>
-            <p className="text-xl font-bold text-gray-700">{filteredFaturamentos.length}</p>
+          <Card className="p-4 border-l-4 border-yellow-400">
+            <div className="flex items-center gap-2 mb-1">
+              <Clock size={14} className="text-yellow-500" />
+              <p className="text-sm text-gray-500 font-medium">Previsão de Entrada</p>
+            </div>
+            <p className="text-xl font-bold text-yellow-600">{formatCurrency(totalPendente)}</p>
           </Card>
         </div>
       )}
