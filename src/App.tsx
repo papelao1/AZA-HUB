@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard, Receipt, TrendingDown, TrendingUp, Users,
-  Menu, LogOut, CheckSquare, CalendarDays, ShieldCheck, KeyRound,
+  Menu, LogOut, CheckSquare, CalendarDays, ShieldCheck, KeyRound, X,
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { useAppStore } from './lib/store';
@@ -53,7 +53,6 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Change password modal state
   const [isPasswordModal, setIsPasswordModal] = useState(false);
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwError, setPwError] = useState<string | null>(null);
@@ -71,35 +70,19 @@ export default function App() {
     setPwError(null);
     setPwSuccess(false);
     const me = authUsers.find(u => u.id === session?.id);
-    if (!me || me.password !== pwForm.current) {
-      setPwError('Senha atual incorreta.');
-      return;
-    }
-    if (pwForm.next.length < 4) {
-      setPwError('A nova senha deve ter ao menos 4 caracteres.');
-      return;
-    }
-    if (pwForm.next !== pwForm.confirm) {
-      setPwError('As senhas não coincidem.');
-      return;
-    }
+    if (!me || me.password !== pwForm.current) { setPwError('Senha atual incorreta.'); return; }
+    if (pwForm.next.length < 4) { setPwError('A nova senha deve ter ao menos 4 caracteres.'); return; }
+    if (pwForm.next !== pwForm.confirm) { setPwError('As senhas não coincidem.'); return; }
     await updateUser(session!.id, { password: pwForm.next });
     setPwSuccess(true);
     setPwForm({ current: '', next: '', confirm: '' });
   };
 
-  // Gate: show login if no custom session
-  if (!session) {
-    return <Login />;
-  }
+  if (!session) return <Login />;
 
   const allowed = TAG_PERMISSIONS[session.tag] ?? [];
   const menuItems = ALL_MENU_ITEMS.filter(item => allowed.includes(item.id));
-
-  // If current page isn't allowed, redirect to first allowed page
-  const safePage: Page = allowed.includes(currentPage)
-    ? currentPage
-    : (allowed[0] as Page) ?? 'dashboard';
+  const safePage: Page = allowed.includes(currentPage) ? currentPage : (allowed[0] as Page) ?? 'dashboard';
 
   const renderPage = () => {
     switch (safePage) {
@@ -117,56 +100,69 @@ export default function App() {
     }
   };
 
-  const navigate = (page: Page) => {
-    setCurrentPage(page);
-    setIsSidebarOpen(false);
-  };
-
+  const navigate = (page: Page) => { setCurrentPage(page); setIsSidebarOpen(false); };
   const isLoading = userId === undefined;
 
   return (
-    <div className="h-[100dvh] w-full bg-gray-50 flex overflow-hidden">
-      {/* Mobile Sidebar Overlay */}
+    <div className="h-[100dvh] w-full flex overflow-hidden" style={{ background: '#f4f5f7' }}>
+
+      {/* Mobile overlay */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 z-40 lg:hidden"
+          style={{ background: 'rgba(15,17,22,0.45)', backdropFilter: 'blur(2px)' }}
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:flex-shrink-0 flex flex-col",
+        "fixed inset-y-0 left-0 z-50 w-[240px] bg-white flex flex-col",
+        "transform transition-transform duration-200 ease-in-out",
+        "lg:translate-x-0 lg:static lg:flex-shrink-0",
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
+      )} style={{ borderRight: '1px solid #eceef2' }}>
+
         {/* Logo */}
-        <div className="h-16 flex items-center px-6 border-b border-gray-100 gap-3">
+        <div className="h-[60px] flex items-center px-5 shrink-0" style={{ borderBottom: '1px solid #eceef2' }}>
           <img
             src="https://squarecrop.onrender.com/image/nENlioz9FTOhyWzwMORe.webp"
             alt="AZA Logo"
-            className="w-8 h-8 rounded-full object-cover"
+            className="w-8 h-8 rounded-xl object-cover shrink-0"
             referrerPolicy="no-referrer"
           />
-          <h1 className="text-xl font-bold">
-            <span className="text-[#CC0000]">AZA</span>
-            <span className="text-gray-700">Hub</span>
+          <h1 className="ml-2.5 text-[18px] font-bold tracking-tight">
+            <span style={{ color: '#CC0000' }}>AZA</span>
+            <span className="text-gray-800">Hub</span>
           </h1>
+          {/* Mobile close */}
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="ml-auto lg:hidden text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        {/* User Info */}
-        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <p className="text-sm font-semibold text-gray-800 truncate">{session.nome}</p>
-          <p className="text-xs text-gray-500 truncate mb-1">@{session.username}</p>
-          <span className={cn(
-            "inline-block px-2 py-0.5 rounded-full text-xs font-semibold",
-            TAG_COLORS[session.tag]
-          )}>
+        {/* User info */}
+        <div className="px-4 py-3.5 mx-3 mt-3 rounded-xl shrink-0" style={{ background: '#f8f9fb' }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+              style={{ background: 'linear-gradient(135deg, #CC0000, #ff4444)' }}>
+              {session.nome.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold text-gray-800 truncate leading-tight">{session.nome}</p>
+              <p className="text-[11px] text-gray-400 truncate leading-tight">@{session.username}</p>
+            </div>
+          </div>
+          <span className={cn("inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase", TAG_COLORS[session.tag])}>
             {session.tag}
           </span>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = safePage === item.id;
@@ -175,13 +171,17 @@ export default function App() {
                 key={item.id}
                 onClick={() => navigate(item.id as Page)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-colors",
+                  "relative w-full flex items-center gap-3 px-3.5 py-2.5 text-[13.5px] font-medium rounded-xl transition-all duration-150",
                   isActive
-                    ? "bg-[#CC0000]/10 text-[#CC0000]"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "text-[#CC0000] nav-item-active"
+                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                 )}
+                style={isActive ? { background: 'rgba(204,0,0,0.07)' } : {}}
               >
-                <Icon size={20} className={cn(isActive ? "text-[#CC0000]" : "text-gray-400")} />
+                <Icon
+                  size={17}
+                  className={cn("shrink-0 transition-colors", isActive ? "text-[#CC0000]" : "text-gray-400")}
+                />
                 {item.label}
               </button>
             );
@@ -189,54 +189,57 @@ export default function App() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-100 space-y-1">
+        <div className="px-3 py-3 shrink-0" style={{ borderTop: '1px solid #eceef2' }}>
           <InstallPWA />
           <button
             onClick={openPasswordModal}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-xl transition-colors"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 text-[13px] font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-xl transition-all duration-150"
           >
-            <KeyRound size={20} className="text-gray-400" />
+            <KeyRound size={16} className="text-gray-400 shrink-0" />
             Alterar Senha
           </button>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 text-[13px] font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-150"
           >
-            <LogOut size={20} />
+            <LogOut size={16} className="shrink-0" />
             Sair
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* ── Main ──────────────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center px-4 lg:hidden">
+
+        {/* Mobile header */}
+        <header className="h-[60px] bg-white flex items-center px-4 lg:hidden shrink-0"
+          style={{ borderBottom: '1px solid #eceef2' }}>
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="p-2 -ml-1.5 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
           >
-            <Menu size={24} />
+            <Menu size={20} />
           </button>
-          <div className="ml-4 flex items-center gap-2">
+          <div className="ml-3 flex items-center gap-2">
             <img
               src="https://squarecrop.onrender.com/image/nENlioz9FTOhyWzwMORe.webp"
               alt="AZA Logo"
-              className="w-8 h-8 rounded-full object-cover"
+              className="w-7 h-7 rounded-lg object-cover"
               referrerPolicy="no-referrer"
             />
-            <h1 className="text-lg font-bold">
-              <span className="text-[#CC0000]">AZA</span>
-              <span className="text-gray-700">Hub</span>
+            <h1 className="text-[17px] font-bold tracking-tight">
+              <span style={{ color: '#CC0000' }}>AZA</span>
+              <span className="text-gray-800">Hub</span>
             </h1>
           </div>
         </header>
 
-        {/* Page Content */}
+        {/* Page content */}
         <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 flex flex-col">
           {isLoading ? (
-            <div className="flex items-center justify-center flex-1">
-              <div className="text-gray-400 text-sm">Conectando ao banco de dados...</div>
+            <div className="flex items-center justify-center flex-1 gap-3">
+              <div className="spinner" />
+              <span className="text-sm text-gray-400 font-medium">Conectando...</span>
             </div>
           ) : (
             <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
@@ -251,53 +254,32 @@ export default function App() {
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div>
             <Label>Senha atual</Label>
-            <Input
-              type="password"
-              required
-              placeholder="Digite sua senha atual"
-              value={pwForm.current}
-              onChange={e => setPwForm({ ...pwForm, current: e.target.value })}
-            />
+            <Input type="password" required placeholder="Digite sua senha atual"
+              value={pwForm.current} onChange={e => setPwForm({ ...pwForm, current: e.target.value })} />
           </div>
           <div>
             <Label>Nova senha</Label>
-            <Input
-              type="password"
-              required
-              placeholder="Mínimo 4 caracteres"
-              value={pwForm.next}
-              onChange={e => setPwForm({ ...pwForm, next: e.target.value })}
-            />
+            <Input type="password" required placeholder="Mínimo 4 caracteres"
+              value={pwForm.next} onChange={e => setPwForm({ ...pwForm, next: e.target.value })} />
           </div>
           <div>
             <Label>Confirmar nova senha</Label>
-            <Input
-              type="password"
-              required
-              placeholder="Repita a nova senha"
-              value={pwForm.confirm}
-              onChange={e => setPwForm({ ...pwForm, confirm: e.target.value })}
-            />
+            <Input type="password" required placeholder="Repita a nova senha"
+              value={pwForm.confirm} onChange={e => setPwForm({ ...pwForm, confirm: e.target.value })} />
           </div>
-
           {pwError && (
-            <div className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-lg">
+            <div className="bg-red-50 text-red-600 text-sm px-3.5 py-2.5 rounded-xl border border-red-100">
               {pwError}
             </div>
           )}
           {pwSuccess && (
-            <div className="bg-green-50 text-green-700 text-sm px-3 py-2 rounded-lg">
+            <div className="bg-green-50 text-green-700 text-sm px-3.5 py-2.5 rounded-xl border border-green-100">
               Senha alterada com sucesso!
             </div>
           )}
-
           <div className="pt-2 flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setIsPasswordModal(false)}>
-              Fechar
-            </Button>
-            {!pwSuccess && (
-              <Button type="submit">Salvar</Button>
-            )}
+            <Button type="button" variant="secondary" onClick={() => setIsPasswordModal(false)}>Fechar</Button>
+            {!pwSuccess && <Button type="submit">Salvar</Button>}
           </div>
         </form>
       </Modal>
