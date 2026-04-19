@@ -15,7 +15,7 @@ export default function Dashboard() {
 
   // ── Métricas do mês ──────────────────────────────────────────────────────
   const faturamentoMes = faturamentos
-    .filter(f => f.data.startsWith(currentMonth) && f.status === 'Recebido')
+    .filter(f => f.data.startsWith(currentMonth) && f.status === 'Recebido' && (isAdmin || f.tipo === 'Produto Front'))
     .reduce((acc, curr) => acc + curr.valor, 0);
 
   const custosMes = custos
@@ -29,11 +29,11 @@ export default function Dashboard() {
   const lucroLiquido = faturamentoMes - custosMes - despesasMes;
   const clientesAtivos = clientes.filter(c => c.status === 'Ativo').length;
   const previsaoEntrada = faturamentos
-    .filter(f => f.status === 'Pendente')
+    .filter(f => f.status === 'Pendente' && (isAdmin || f.tipo === 'Produto Front'))
     .reduce((acc, curr) => acc + curr.valor, 0);
 
   // ── Dados do gráfico ─────────────────────────────────────────────────────
-  const faturamentosRecebidos = faturamentos.filter(f => f.status === 'Recebido');
+  const faturamentosRecebidos = faturamentos.filter(f => f.status === 'Recebido' && (isAdmin || f.tipo === 'Produto Front'));
   const monthsMap = new Map<string, { faturamento: number; custosDespesas: number; lucro: number }>();
 
   [...faturamentosRecebidos, ...custos, ...despesas].forEach(item => {
